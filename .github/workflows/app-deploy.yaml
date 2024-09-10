@@ -1,0 +1,69 @@
+name: App Deploy Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_commit:
+        required: true
+      app_name:
+        required: true
+
+jobs:
+  deploy-to-dev:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: |
+          aws eks update-kubeconfig --name main-dev-eks
+          ARGOCD_PASSWORD=$(kubectl get secrets argocd-initial-admin-secret -n argocd  -o=jsonpath='{.data.password}' | base64 --decode)
+          argocd login  argocd-main-dev.rdevopsb79.online:443 --grpc-web --username admin --password ${ARGOCD_PASSWORD}
+          argocd app create roboshop-${{ github.event.inputs.app_name }} --upsert --project default --sync-policy auto --repo https://github.com/raghudevopsb79/roboshop-helm --path chart --dest-namespace app --dest-server https://kubernetes.default.svc --values ../env-dev/roboshop-${{ github.event.inputs.app_name }}.yaml --helm-set image=739561048503.dkr.ecr.us-east-1.amazonaws.com/roboshop-${{ github.event.inputs.app_name }}:${{ github.event.inputs.deploy_commit }}
+
+  deploy-to-qa:
+    runs-on: self-hosted
+    needs: [deploy-to-dev]
+    environment: qa
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run a one-line script
+        run: echo Hello, world!
+
+  functional-tests:
+    runs-on: self-hosted
+    needs: [deploy-to-qa]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run a one-line script
+        run: echo Hello, world!
+
+  e2e-tests:
+    runs-on: self-hosted
+    needs: [deploy-to-qa]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run a one-line script
+        run: echo Hello, world!
+
+  deploy-to-stage:
+    runs-on: self-hosted
+    needs: [e2e-tests, functional-tests]
+    environment: stage
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run a one-line script
+        run: echo Hello, world!
+
+  deploy-to-prod:
+    runs-on: self-hosted
+    needs: [deploy-to-stage]
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: |
+          aws eks update-kubeconfig --name main-prod-eks
+          ARGOCD_PASSWORD=$(kubectl get secrets argocd-initial-admin-secret -n argocd  -o=jsonpath='{.data.password}' | base64 --decode)
+          argocd login  argocd-main-prod.rdevopsb79.online:443 --grpc-web --username admin --password ${ARGOCD_PASSWORD}
+          argocd app create roboshop-${{ github.event.inputs.app_name }} --upsert --project default --sync-policy auto --repo https://github.com/raghudevopsb79/roboshop-helm --path chart --dest-namespace app --dest-server https://kubernetes.default.svc --values ../env-prod/roboshop-${{ github.event.inputs.app_name }}.yaml --helm-set image=739561048503.dkr.ecr.us-east-1.amazonaws.com/roboshop-${{ github.event.inputs.app_name }}:${{ github.event.inputs.deploy_commit }}
+
