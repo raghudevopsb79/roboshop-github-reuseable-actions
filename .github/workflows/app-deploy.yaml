@@ -69,4 +69,5 @@ jobs:
           ARGOCD_PASSWORD=$(kubectl get secrets argocd-initial-admin-secret -n argocd  -o=jsonpath='{.data.password}' | base64 --decode)
           argocd login  argocd-main-prod.rdevopsb79.online:443 --grpc-web --username admin --password ${ARGOCD_PASSWORD}
           argocd app create roboshop-${{ github.event.inputs.app_name }} --upsert --project default --sync-policy auto --repo https://github.com/raghudevopsb79/roboshop-helm --path chart --dest-namespace app --dest-server https://kubernetes.default.svc --values ../env-prod/${{ github.event.inputs.app_name }}.yaml --helm-set image=739561048503.dkr.ecr.us-east-1.amazonaws.com/${{ github.event.inputs.app_name }}:${{ github.event.inputs.deploy_commit }}
+          argocd app sync roboshop-${{ github.event.inputs.app_name }}
 
